@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("ACC_SECRET_KEY", "dev-key-change-me-in-production")
-DEBUG = os.environ.get("ACC_DEBUG", "false").lower() == "true"
+DEBUG = True
 ALLOWED_HOSTS = os.environ.get("ACC_HOSTS", "localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [

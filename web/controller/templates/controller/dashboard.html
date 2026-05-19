@@ -31,7 +31,13 @@
             {% for s in active_sessions %}
             <tr>
                 <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:40 }}</a></td>
-                <td>{{ s.device.model|default:s.device.serial }}</td>
+                <td>
+                    {% if s.device %}
+                        {{ s.device.model|default:s.device.serial }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
                 <td>{{ s.updated_at|timesince }} ago</td>
             </tr>
             {% endfor %}
@@ -51,7 +57,13 @@
         <tr>
             <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:50 }}</a></td>
             <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
-            <td>{{ s.device.model|default:"—" }}</td>
+            <td>
+                {% if s.device %}
+                    {{ s.device.model|default:s.device.serial }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
             <td>{{ s.updated_at|timesince }} ago</td>
         </tr>
         {% endfor %}

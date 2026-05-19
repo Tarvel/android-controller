@@ -18,6 +18,7 @@ def run_agent_task(self, session_id: str, goal: str):
     from acc_core.adb import AdbDevice
     from acc_core.providers import create_provider
     from acc_core.agent import AgentLoop, AgentCallbacks
+    from asgiref.sync import sync_to_async
     import asyncio
     import os
 
@@ -39,10 +40,10 @@ def run_agent_task(self, session_id: str, goal: str):
     class CeleryCallbacks(AgentCallbacks):
         async def on_step_start(self, step: int):
             session.agent_state = {**session.agent_state, "current_step": step}
-            session.save(update_fields=["agent_state"])
+            await sync_to_async(session.save)(update_fields=["agent_state"])
 
         async def on_tool_call(self, tool_name: str, tool_input: dict):
-            Message.objects.create(
+            await sync_to_async(Message.objects.create)(
                 session=session, role="assistant",
                 content=f"Calling {tool_name}",
                 metadata={"tool_name": tool_name, "tool_input": tool_input},
@@ -50,7 +51,7 @@ def run_agent_task(self, session_id: str, goal: str):
             )
 
         async def on_tool_result(self, tool_name: str, result: dict):
-            Message.objects.create(
+            await sync_to_async(Message.objects.create)(
                 session=session, role="tool",
                 content=json.dumps(result, default=str)[:1000],
                 metadata={"tool_name": tool_name, "output": result},
@@ -58,7 +59,7 @@ def run_agent_task(self, session_id: str, goal: str):
             )
 
         async def on_assistant_message(self, text: str):
-            Message.objects.create(
+            await sync_to_async(Message.objects.create)(
                 session=session, role="assistant",
                 content=text,
                 step_number=session.agent_state.get("current_step"),
@@ -66,12 +67,12 @@ def run_agent_task(self, session_id: str, goal: str):
 
         async def on_task_complete(self, success: bool, summary: str, steps: int):
             session.status = "completed" if success else "error"
-            session.save(update_fields=["status"])
+            await sync_to_async(session.save)(update_fields=["status"])
 
         async def on_error(self, error: Exception):
             session.status = "error"
-            session.save(update_fields=["status"])
-            Message.objects.create(session=session, role="system", content=str(error))
+            await sync_to_async(session.save)(update_fields=["status"])
+            await sync_to_async(Message.objects.create)(session=session, role="system", content=str(error))
 
     provider = create_provider()
     loop = AgentLoop()

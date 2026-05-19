@@ -3,7 +3,7 @@ from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, DeleteView, TemplateView
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -26,7 +26,23 @@ class DashboardView(TemplateView):
     def _get_devices(self):
         try:
             client = AdbClient()
-            return client.devices()
+            connected_devices = client.devices()
+            
+            # Sync connected devices to the database
+            connected_serials = [d["serial"] for d in connected_devices]
+            for d in connected_devices:
+                Device.objects.update_or_create(
+                    serial=d["serial"],
+                    defaults={
+                        "model": d.get("model", ""),
+                        "is_connected": True,
+                    }
+                )
+            
+            # Mark disconnected ones
+            Device.objects.exclude(serial__in=connected_serials).update(is_connected=False)
+            
+            return connected_devices
         except Exception:
             return []
 
@@ -43,6 +59,30 @@ class DeviceDetailView(DetailView):
     context_object_name = "device"
     slug_field = "serial"
     slug_url_kwarg = "serial"
+
+    def get_object(self, queryset=None):
+        serial = self.kwargs.get(self.slug_url_kwarg)
+        try:
+            # 1. Try to find the device in the database
+            return Device.objects.get(serial=serial)
+        except Device.DoesNotExist:
+            # 2. If it doesn't exist, check if it's currently connected to ADB and register it
+            try:
+                client = AdbClient()
+                for d in client.devices():
+                    if d["serial"] == serial:
+                        dev, _ = Device.objects.get_or_create(
+                            serial=serial,
+                            defaults={
+                                "model": d.get("model", ""),
+                                "is_connected": True,
+                            }
+                        )
+                        return dev
+            except Exception:
+                pass
+            # 3. If it's not active in ADB either, raise a standard 404
+            raise Http404("No device found matching the query")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -181,6 +221,7 @@ def _run_agent_inline(session, goal):
     from acc_core.adb import AdbDevice
     from acc_core.providers import create_provider
     from acc_core.agent import AgentLoop, AgentCallbacks
+    from asgiref.sync import sync_to_async
 
     import os
     api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
@@ -196,10 +237,10 @@ def _run_agent_inline(session, goal):
     class DjangoCallbacks(AgentCallbacks):
         async def on_step_start(self, step: int):
             session.agent_state = {**session.agent_state, "current_step": step}
-            session.save(update_fields=["agent_state"])
+            await sync_to_async(session.save)(update_fields=["agent_state"])
 
         async def on_tool_call(self, tool_name: str, tool_input: dict):
-            Message.objects.create(
+            await sync_to_async(Message.objects.create)(
                 session=session, role="assistant",
                 content=f"Calling {tool_name}",
                 metadata={"tool_name": tool_name, "tool_input": tool_input},
@@ -207,7 +248,7 @@ def _run_agent_inline(session, goal):
             )
 
         async def on_tool_result(self, tool_name: str, result: dict):
-            Message.objects.create(
+            await sync_to_async(Message.objects.create)(
                 session=session, role="tool",
                 content=json.dumps(result, default=str)[:500],
                 metadata={"tool_name": tool_name, "tool_output": result},
@@ -216,8 +257,8 @@ def _run_agent_inline(session, goal):
 
         async def on_task_complete(self, success: bool, summary: str, steps: int):
             session.status = "completed" if success else "error"
-            session.save(update_fields=["status"])
-            Message.objects.create(
+            await sync_to_async(session.save)(update_fields=["status"])
+            await sync_to_async(Message.objects.create)(
                 session=session, role="system",
                 content=summary,
                 step_number=steps,

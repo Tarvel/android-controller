@@ -9,7 +9,7 @@
         <a href="{% url 'session_delete' session.pk %}" class="btn btn-danger" style="margin-left:8px;">Delete</a>
     </div>
 </div>
-<p class="muted">Device: {{ session.device.model|default:session.device.serial }} | Mode: {{ session.mode }} | Steps: {{ session.agent_state.current_step|default:"0" }}</p>
+<p class="muted">Device: {% if session.device %}{{ session.device.model|default:session.device.serial }}{% else %}—{% endif %} | Mode: {{ session.mode }} | Steps: {{ session.agent_state.current_step|default:"0" }}</p>
 
 <div class="card">
     <div id="chat-messages" class="chat-container">

@@ -3,6 +3,7 @@
 import json
 import redis
 from django.conf import settings
+from asgiref.sync import sync_to_async
 from web.controller.models import Session, Message, Screenshot, SafetyApproval
 
 
@@ -18,11 +19,11 @@ class DjangoRedisCallbacks:
 
     async def on_step_start(self, step: int):
         self.session.agent_state = {**self.session.agent_state, "current_step": step}
-        self.session.save(update_fields=["agent_state"])
+        await sync_to_async(self.session.save)(update_fields=["agent_state"])
         self._publish({"event": "step_start", "step": step})
 
     async def on_tool_call(self, tool_name: str, tool_input: dict):
-        msg = Message.objects.create(
+        msg = await sync_to_async(Message.objects.create)(
             session=self.session,
             role="assistant",
             content=f"Calling {tool_name}",
@@ -37,7 +38,7 @@ class DjangoRedisCallbacks:
         })
 
     async def on_tool_result(self, tool_name: str, result: dict):
-        msg = Message.objects.create(
+        msg = await sync_to_async(Message.objects.create)(
             session=self.session,
             role="tool",
             content=json.dumps(result, default=str)[:500],
@@ -53,7 +54,7 @@ class DjangoRedisCallbacks:
 
     async def request_confirmation(self, tool_name: str, tool_input: dict,
                                    risk_level: str, reason: str) -> bool:
-        approval = SafetyApproval.objects.create(
+        approval = await sync_to_async(SafetyApproval.objects.create)(
             session=self.session,
             tool_name=tool_name,
             tool_input=tool_input,
@@ -71,7 +72,7 @@ class DjangoRedisCallbacks:
         import asyncio
         for _ in range(60):  # 60 second timeout
             await asyncio.sleep(1)
-            approval.refresh_from_db()
+            await sync_to_async(approval.refresh_from_db)()
             if approval.status == "approved":
                 return True
             elif approval.status == "denied":
@@ -81,8 +82,8 @@ class DjangoRedisCallbacks:
     async def on_task_complete(self, success: bool, summary: str, steps: int):
         self.session.status = "completed" if success else "error"
         self.session.agent_state = {**self.session.agent_state, "final_step": steps}
-        self.session.save(update_fields=["status", "agent_state"])
-        Message.objects.create(
+        await sync_to_async(self.session.save)(update_fields=["status", "agent_state"])
+        await sync_to_async(Message.objects.create)(
             session=self.session, role="system", content=summary, step_number=steps,
         )
         self._publish({"event": "task_complete", "success": success, "summary": summary})
