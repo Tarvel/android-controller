@@ -59,11 +59,13 @@ def create_provider(
 
     # Resolve model
     if not model:
+        model = os.environ.get("ACC_MODEL")
+    if not model:
         model_defaults = {
             "anthropic": "claude-sonnet-4-5-20250929",
             "deepseek": "deepseek-chat",
         }
-        model = get("model") or model_defaults.get(provider, "deepseek-chat")
+        model = model_defaults.get(provider, "deepseek-chat")
 
     provider_cls = PROVIDER_REGISTRY[provider]
     return provider_cls(api_key=api_key, model=model)
@@ -72,3 +74,9 @@ def create_provider(
 def get_available_providers() -> list[str]:
     """List registered provider names."""
     return list(PROVIDER_REGISTRY.keys())
+
+
+# Import provider modules at the bottom to trigger their @register_provider decorators
+# and populate PROVIDER_REGISTRY, avoiding circular dependency issues.
+import acc_core.providers.anthropic
+import acc_core.providers.deepseek

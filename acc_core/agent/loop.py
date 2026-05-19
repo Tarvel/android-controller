@@ -71,6 +71,19 @@ class AgentLoop:
                 await callbacks.on_assistant_message(response.text)
 
             if response.has_tool_calls():
+                # Save the assistant's reasoning text and tool calls to history so subsequent tool responses have a parent message
+                content_blocks = []
+                if response.text:
+                    content_blocks.append({"type": "text", "text": response.text})
+                for tc in response.tool_calls:
+                    content_blocks.append({
+                        "type": "tool_use",
+                        "id": tc.id,
+                        "name": tc.name,
+                        "input": tc.input,
+                    })
+                conversation.add_assistant(content_blocks)
+
                 for tc in response.tool_calls:
                     tool_name = tc.name
                     tool_input = tc.input
@@ -92,7 +105,7 @@ class AgentLoop:
                             continue
 
                     # ─── EXECUTE ───
-                    tool_result = await execute_tool(adb, tool_call)
+                    tool_result = await execute_tool(adb, tc)
 
                     # ─── VERIFY ───
                     verification = await verify_action(adb, tool_name, tool_input, tool_result)
