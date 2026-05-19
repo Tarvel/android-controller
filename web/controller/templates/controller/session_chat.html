@@ -1,0 +1,149 @@
+{% extends "controller/base.html" %}
+{% block title %}{{ session.title|truncatechars:40 }} — ACC{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;">
+    <h1>{{ session.title|truncatechars:60 }}</h1>
+    <div>
+        <span class="badge badge-{{ session.status }}">{{ session.status }}</span>
+        <a href="{% url 'session_delete' session.pk %}" class="btn btn-danger" style="margin-left:8px;">Delete</a>
+    </div>
+</div>
+<p class="muted">Device: {{ session.device.model|default:session.device.serial }} | Mode: {{ session.mode }} | Steps: {{ session.agent_state.current_step|default:"0" }}</p>
+
+<div class="card">
+    <div id="chat-messages" class="chat-container">
+        {% for msg in messages %}
+        <div class="chat-msg chat-{{ msg.role }}">
+            {% if msg.role == "tool" and msg.metadata.tool_name %}
+            <strong>🛠 {{ msg.metadata.tool_name }}</strong><br>
+            {% endif %}
+            {{ msg.content|linebreaksbr }}
+            {% if msg.metadata.tool_output %}
+            <details><summary>Result</summary><pre>{{ msg.metadata.tool_output|safe|truncatechars:500 }}</pre></details>
+            {% endif %}
+            {% if msg.step_number %}<div class="muted">Step {{ msg.step_number }}</div>{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if session.status == "active" %}
+    <form id="chat-form" onsubmit="sendMessage(event)" class="input-group">
+        <input type="text" id="message-input" placeholder="Describe what you want to do on the device..." autofocus>
+        <button type="submit" class="btn btn-primary" id="send-btn">Send</button>
+    </form>
+    {% else %}
+    <p class="muted" style="text-align:center;">Session {{ session.status }}. <a href="{% url 'session_create' %}">Start a new one.</a></p>
+    {% endif %}
+</div>
+
+{% if pending_approvals %}
+<div class="card" style="border-color:#f85149;">
+    <h2>⚠️ Pending Safety Approvals</h2>
+    {% for approval in pending_approvals %}
+    <div id="approval-{{ approval.pk }}" style="margin-bottom:8px;">
+        <strong>{{ approval.tool_name }}</strong> — Risk: {{ approval.risk_level }}
+        <p class="muted">{{ approval.tool_input }}</p>
+        <button class="btn btn-primary" onclick="approveAction({{ approval.pk }}, true)">Approve</button>
+        <button class="btn btn-danger" onclick="approveAction({{ approval.pk }}, false)">Deny</button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let lastMessageId = {{ messages.last.pk|default:"0" }};
+let pollInterval = null;
+
+{% if session.status == "active" %}
+pollInterval = setInterval(pollMessages, 1500);
+{% endif %}
+
+async function pollMessages() {
+    try {
+        const resp = await fetch('/api/sessions/{{ session.pk }}/messages/?after=' + lastMessageId);
+        const data = await resp.json();
+
+        if (data.messages && data.messages.length > 0) {
+            const container = document.getElementById('chat-messages');
+            for (const msg of data.messages) {
+                const div = document.createElement('div');
+                div.className = 'chat-msg chat-' + msg.role;
+                let content = msg.content;
+                if (msg.role === 'tool' && msg.metadata && msg.metadata.tool_name) {
+                    content = '<strong>🛠 ' + msg.metadata.tool_name + '</strong><br>' + content;
+                    if (msg.metadata.tool_output) {
+                        content += '<details><summary>Result</summary><pre>' +
+                            JSON.stringify(msg.metadata.tool_output).substring(0, 500) + '</pre></details>';
+                    }
+                }
+                if (msg.step_number) {
+                    content += '<div class="muted">Step ' + msg.step_number + '</div>';
+                }
+                div.innerHTML = content;
+                container.appendChild(div);
+                lastMessageId = msg.id;
+            }
+            container.scrollTop = container.scrollHeight;
+        }
+
+        if (data.session_status !== 'active') {
+            clearInterval(pollInterval);
+            document.getElementById('chat-form').style.display = 'none';
+            location.reload();
+        }
+    } catch (e) {
+        console.error('Poll error:', e);
+    }
+}
+
+async function sendMessage(event) {
+    event.preventDefault();
+    const input = document.getElementById('message-input');
+    const btn = document.getElementById('send-btn');
+    const message = input.value.trim();
+    if (!message) return;
+
+    // Add to UI immediately
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-user';
+    div.textContent = message;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+
+    input.value = '';
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+        await fetch('/api/sessions/{{ session.pk }}/send/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: message}),
+        });
+    } catch (e) {
+        console.error('Send error:', e);
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Send';
+}
+
+async function approveAction(approvalId, approved) {
+    try {
+        await fetch('/api/sessions/{{ session.pk }}/approve/' + approvalId + '/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({approved: approved}),
+        });
+        const el = document.getElementById('approval-' + approvalId);
+        if (el) el.style.display = 'none';
+    } catch (e) {
+        console.error('Approve error:', e);
+    }
+}
+</script>
+{% endblock %}

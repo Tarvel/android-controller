@@ -1,0 +1,31 @@
+{% extends "controller/base.html" %}
+{% block title %}Device {{ device.serial }} — ACC{% endblock %}
+{% block content %}
+<h1>{{ device.model|default:device.serial }}</h1>
+<div class="card">
+    <table>
+        <tr><th>Serial</th><td>{{ device.serial }}</td></tr>
+        <tr><th>Model</th><td>{{ device.model|default:"—" }}</td></tr>
+        <tr><th>Manufacturer</th><td>{{ device.manufacturer|default:"—" }}</td></tr>
+        <tr><th>Screen</th><td>{% if device.screen_width %}{{ device.screen_width }}x{{ device.screen_height }}{% else %}—{% endif %}</td></tr>
+        <tr><th>Android</th><td>{{ device.android_version|default:"—" }}</td></tr>
+        <tr><th>Last Seen</th><td>{{ device.last_seen|timesince }} ago</td></tr>
+    </table>
+</div>
+
+<h2>Sessions</h2>
+{% if sessions %}
+<table>
+    <tr><th>Title</th><th>Status</th><th>Updated</th></tr>
+    {% for s in sessions %}
+    <tr>
+        <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:50 }}</a></td>
+        <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+        <td>{{ s.updated_at|timesince }} ago</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="muted">No sessions with this device.</p>
+{% endif %}
+{% endblock %}

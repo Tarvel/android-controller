@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "android-claude-controller"
+version = "0.1.0"
+description = "Control Android devices through natural language via Claude or DeepSeek AI"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [{name = "Tai", email = ""}]
+keywords = ["android", "claude", "deepseek", "automation", "adb", "ai"]
+
+dependencies = [
+    "anthropic>=0.45.0,<1.0.0",
+    "openai>=1.0.0,<2.0.0",
+    "Pillow>=10.0.0,<13.0",
+    "click>=8.1.0,<9.0",
+    "rich>=13.0.0,<14.0",
+    "python-dotenv>=1.0.0,<2.0",
+    "tomli>=2.0.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+web = [
+    "Django>=4.2,<5.2",
+    "celery[redis]>=5.3,<6.0",
+    "redis>=5.0,<7.0",
+    "django-cors-headers>=4.0,<5.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-django>=4.8",
+    "pytest-mock>=3.14",
+    "ruff>=0.5.0",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+acc = "cli.main:cli"
+
+[project.urls]
+Repository = "https://github.com/tai/android-claude-controller"
+
+[tool.setuptools.packages.find]
+include = ["acc_core*", "cli*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow",
+    "requires_device: marks tests that need a real Android device",
+    "requires_api: marks tests that call the Anthropic API",
+]

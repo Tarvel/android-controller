@@ -1,0 +1,27 @@
+{% extends "controller/base.html" %}
+{% block title %}New Session — ACC{% endblock %}
+{% block content %}
+<h1>New Session</h1>
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        <div style="margin-bottom:12px;">
+            <label>Title</label><br>
+            {{ form.title }}
+        </div>
+        <div style="margin-bottom:12px;">
+            <label>Device</label><br>
+            {{ form.device }}
+        </div>
+        <div style="margin-bottom:12px;">
+            <label>Mode</label><br>
+            {{ form.mode }}
+        </div>
+        <div style="margin-bottom:12px;">
+            <label>Initial Goal (optional)</label><br>
+            <input type="text" name="goal" style="width:100%;padding:10px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;" placeholder="e.g. open Chrome and go to google.com">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Session</button>
+    </form>
+</div>
+{% endblock %}

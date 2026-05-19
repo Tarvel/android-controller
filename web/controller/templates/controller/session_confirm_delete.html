@@ -1,0 +1,14 @@
+{% extends "controller/base.html" %}
+{% block title %}Delete Session — ACC{% endblock %}
+{% block content %}
+<h1>Delete Session</h1>
+<div class="card">
+    <p>Are you sure you want to delete "{{ object.title }}"?</p>
+    <p class="muted">This will permanently remove all messages and screenshots in this session.</p>
+    <form method="post" style="margin-top:16px;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'session_chat' object.pk %}" class="btn">Cancel</a>
+    </form>
+</div>
+{% endblock %}

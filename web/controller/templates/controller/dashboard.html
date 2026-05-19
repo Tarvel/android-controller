@@ -1,0 +1,63 @@
+{% extends "controller/base.html" %}
+
+{% block title %}ACC Dashboard{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="grid">
+    <div class="card">
+        <h2>Connected Devices</h2>
+        {% if devices %}
+        <table>
+            <tr><th>Serial</th><th>State</th></tr>
+            {% for d in devices %}
+            <tr>
+                <td><a href="{% url 'device_detail' d.serial %}">{{ d.serial }}</a></td>
+                <td><span class="badge {% if d.state == 'device' %}badge-active{% else %}badge-error{% endif %}">{{ d.state }}</span></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p class="muted">No devices connected. Connect via USB or TCP/IP.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Active Sessions</h2>
+        {% if active_sessions %}
+        <table>
+            <tr><th>Title</th><th>Device</th><th>Updated</th></tr>
+            {% for s in active_sessions %}
+            <tr>
+                <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:40 }}</a></td>
+                <td>{{ s.device.model|default:s.device.serial }}</td>
+                <td>{{ s.updated_at|timesince }} ago</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p class="muted">No active sessions.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
+    <h2>Recent Sessions</h2>
+    {% if recent_sessions %}
+    <table>
+        <tr><th>Title</th><th>Status</th><th>Device</th><th>Updated</th></tr>
+        {% for s in recent_sessions %}
+        <tr>
+            <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:50 }}</a></td>
+            <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+            <td>{{ s.device.model|default:"—" }}</td>
+            <td>{{ s.updated_at|timesince }} ago</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p class="muted">No sessions yet. <a href="{% url 'session_create' %}">Create one</a>.</p>
+    {% endif %}
+</div>
+{% endblock %}

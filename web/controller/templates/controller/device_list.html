@@ -1,0 +1,21 @@
+{% extends "controller/base.html" %}
+{% block title %}Devices — ACC{% endblock %}
+{% block content %}
+<h1>Devices</h1>
+{% if devices %}
+<table>
+    <tr><th>Serial</th><th>Model</th><th>Android</th><th>Connected</th><th>Last Seen</th></tr>
+    {% for d in devices %}
+    <tr>
+        <td><a href="{% url 'device_detail' d.serial %}">{{ d.serial }}</a></td>
+        <td>{{ d.model|default:"—" }}</td>
+        <td>{{ d.android_version|default:"—" }}</td>
+        <td><span class="badge {% if d.is_connected %}badge-active{% else %}badge-error{% endif %}">{{ d.is_connected|yesno:"Yes,No" }}</span></td>
+        <td>{{ d.last_seen|timesince }} ago</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="muted">No devices recorded yet.</p>
+{% endif %}
+{% endblock %}

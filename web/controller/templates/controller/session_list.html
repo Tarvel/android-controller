@@ -1,0 +1,24 @@
+{% extends "controller/base.html" %}
+{% block title %}Sessions — ACC{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;">
+    <h1>Sessions</h1>
+    <a href="{% url 'session_create' %}" class="btn btn-primary">New Session</a>
+</div>
+{% if sessions %}
+<table>
+    <tr><th>Title</th><th>Device</th><th>Mode</th><th>Status</th><th>Updated</th></tr>
+    {% for s in sessions %}
+    <tr>
+        <td><a href="{% url 'session_chat' s.pk %}">{{ s.title|truncatechars:50 }}</a></td>
+        <td>{{ s.device.model|default:"—" }}</td>
+        <td>{{ s.mode }}</td>
+        <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+        <td>{{ s.updated_at|timesince }} ago</td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p class="muted">No sessions yet.</p>
+{% endif %}
+{% endblock %}
